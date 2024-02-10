@@ -4,20 +4,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "Mirrorable",
+    name: "PropertyMappable",
+    platforms: [
+        .macOS(.v14)
+    ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "Mirrorable",
-            targets: ["Mirrorable"]),
+            name: "PropertyMappable",
+            targets: ["PropertyMappable"]),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "Mirrorable"),
+            name: "PropertyMappable"),
         .testTarget(
-            name: "MirrorableTests",
-            dependencies: ["Mirrorable"]),
+            name: "PropertyMappableTests",
+            dependencies: ["PropertyMappable"]),
     ]
 )
