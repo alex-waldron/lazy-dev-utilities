@@ -20,14 +20,14 @@ final class PropertyMappableTests: XCTestCase {
 
     func testSubLevelSourceToOther() {
         var t = Test(val: "Hey", subVal: SubTest(prop: "123"))
-        let other = TestOther(val: "Hey", subVal: SubTestInfo(prop: "456"))
+        let other = TestOther(val: "Hey", subVal: SubTestOther(prop: "456"))
         t.update(using: other)
 
         XCTAssertEqual(t.subVal?.prop, "456")
     }
 
     func testSubLevelOtherToSource() {
-        var other = TestOther(val: "hi", subVal: SubTestInfo(prop: "987"))
+        var other = TestOther(val: "hi", subVal: SubTestOther(prop: "987"))
         let test = Test(val: "hi", subVal: SubTest(prop: "654"))
 
         other.update(using: test)
@@ -37,28 +37,28 @@ final class PropertyMappableTests: XCTestCase {
 
 private struct Test: PropertyMappable {
 
-    typealias Info = TestOther
+    typealias OtherMappable = TestOther
 
     var val: String
     var subVal: SubTest?
 
-    static var kps: KeyPathCollection {
+    static var propertyMappings: PropertyMapperCollection {
         (\.val, \.val)
         (\.subVal, \.subVal)
     }
 }
 
-private struct TestOther: MirrorableInfo {
-    typealias Source = Test
+private struct TestOther: PropertyMappable {
+    typealias OtherMappable = Test
 
     var val: String
-    var subVal: SubTestInfo?
+    var subVal: SubTestOther?
 }
 
 private struct SubTest: PropertyMappable {
-    typealias Info = SubTestInfo
+    typealias OtherMappable = SubTestOther
 
-    static var kps: KeyPathCollection {
+    static var propertyMappings: PropertyMapperCollection {
         (\.prop, \.prop)
     }
 
@@ -66,7 +66,8 @@ private struct SubTest: PropertyMappable {
 
 }
 
-private struct SubTestInfo: MirrorableInfo {
-    typealias Source = SubTest
+private struct SubTestOther: PropertyMappable {
+    typealias OtherMappable = SubTest
+    
     var prop: String
 }

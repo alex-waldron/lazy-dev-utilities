@@ -2,45 +2,45 @@
 // https://docs.swift.org/swift-book
 
 public protocol PropertyMappable {
-    associatedtype Info where Info: MirrorableInfo, Info.Source == Self
+    associatedtype OtherMappable where OtherMappable: PropertyMappable, OtherMappable.OtherMappable == Self
 
-    @MirrorableBuilder static var kps: KeyPathCollection { get }
+    @MirrorableBuilder static var propertyMappings: PropertyMapperCollection { get }
 }
 
 extension PropertyMappable {
-    public typealias MirrorableBuilder = KeyPathCollectionBuilder<Self, Info>
-    public typealias KeyPathCollection = KPCollection<Self, Info>
+    public typealias MirrorableBuilder = KeyPathCollectionBuilder<Self, OtherMappable>
+    public typealias PropertyMapperCollection = _PropertyMapperCollection<Self, OtherMappable>
 
-    public mutating func update(using other: Info) {
-        Self.kps.mapProperties(fromT1: other, to: &self)
+    /// so we don't have to define the keypath mapping in both Self and OtherMappable
+    public static var propertyMappings: PropertyMapperCollection {
+        PropertyMapperCollection(flippedCollection: OtherMappable.propertyMappings)
+    }
+
+    public mutating func update(using other: OtherMappable) {
+        Self.propertyMappings.mapProperties(fromT1: other, to: &self)
     }
 }
 
-public protocol MirrorableInfo {
-    associatedtype Source where Source: PropertyMappable, Source.Info == Self
-}
+public struct _PropertyMapperCollection<T0, T1> {
+    let propertyMappers: [PropertyMapper<T0, T1>]
 
-extension MirrorableInfo {
-    public mutating func update(using source: Source) {
-        Self.Source.kps.mapProperties(fromT0: source, to: &self)
+    init(propertyMappers: [PropertyMapper<T0, T1>]) {
+        self.propertyMappers = propertyMappers
     }
-}
 
-public struct KPCollection<T0, T1> {
-    let kpContainers: [PropertyMapper<T0, T1>]
-
-    init(kpContainers: [PropertyMapper<T0, T1>]) {
-        self.kpContainers = kpContainers
+    init(flippedCollection: _PropertyMapperCollection<T1, T0>) {
+        let flippedPropertyMappers = flippedCollection.propertyMappers.map(PropertyMapper.init(flippedMapper:))
+        self.init(propertyMappers: flippedPropertyMappers)
     }
 
     func mapProperties(fromT0 t0: T0, to t1: inout T1) {
-        for kpContainer in kpContainers {
+        for kpContainer in propertyMappers {
             kpContainer.propertyMapperFromT0ToT1(t0, &t1)
         }
     }
 
     func mapProperties(fromT1 t1: T1, to t0: inout T0) {
-        for kpContainer in kpContainers {
+        for kpContainer in propertyMappers {
             kpContainer.propertyMapperFromT1ToT0(t1, &t0)
         }
     }
@@ -60,7 +60,7 @@ public struct PropertyMapper<T0, T1> {
         }
     }
 
-    init<Source, Info>(_ kp0: WritableKeyPath<T0, Source>, _ kp1: WritableKeyPath<T1, Info>) where Source: PropertyMappable, Info: MirrorableInfo, Source.Info == Info {
+    init<Mappable0, Mappable1>(_ kp0: WritableKeyPath<T0, Mappable0>, _ kp1: WritableKeyPath<T1, Mappable1>) where Mappable0: PropertyMappable, Mappable1: PropertyMappable, Mappable0.OtherMappable == Mappable1 {
         self.propertyMapperFromT0ToT1 = { t0, t1 in
             t1[keyPath: kp1].update(using: t0[keyPath: kp0])
         }
@@ -71,7 +71,7 @@ public struct PropertyMapper<T0, T1> {
 
     }
 
-    init<Source, Info>(_ kp0: WritableKeyPath<T0, Source?>, _ kp1: WritableKeyPath<T1, Info?>) where Source: PropertyMappable, Info: MirrorableInfo, Source.Info == Info {
+    init<Mappable0, Mappable1>(_ kp0: WritableKeyPath<T0, Mappable0?>, _ kp1: WritableKeyPath<T1, Mappable1?>) where Mappable0: PropertyMappable, Mappable1: PropertyMappable, Mappable0.OtherMappable == Mappable1 {
         self.propertyMapperFromT0ToT1 = { t0, t1 in
             if let t0Value = t0[keyPath: kp0] {
                 t1[keyPath: kp1]?.update(using: t0Value)
@@ -101,16 +101,16 @@ public struct PropertyMapper<T0, T1> {
         PropertyMapper(expression.0, expression.1)
     }
 
-    public static func buildExpression<Source, Info>(_ expression: (WritableKeyPath<T0, Source>, WritableKeyPath<T1, Info>)) -> PropertyMapper<T0, T1> where Source: PropertyMappable, Info: MirrorableInfo, Source.Info == Info {
+    public static func buildExpression<U0, U1>(_ expression: (WritableKeyPath<T0, U0>, WritableKeyPath<T1, U1>)) -> PropertyMapper<T0, T1> where U0: PropertyMappable, U1: PropertyMappable, U0.OtherMappable == U1 {
         PropertyMapper(expression.0, expression.1)
     }
 
-    public static func buildExpression<Source, Info>(_ expression: (WritableKeyPath<T0, Source?>, WritableKeyPath<T1, Info?>)) -> PropertyMapper<T0, T1> where Source: PropertyMappable, Info: MirrorableInfo, Source.Info == Info {
+    public static func buildExpression<U0, U1>(_ expression: (WritableKeyPath<T0, U0?>, WritableKeyPath<T1, U1?>)) -> PropertyMapper<T0, T1> where U0: PropertyMappable, U1: PropertyMappable, U0.OtherMappable == U1 {
         PropertyMapper(expression.0, expression.1)
     }
 
-    public static func buildBlock(_ components: PropertyMapper<T0, T1>...) -> KPCollection<T0, T1> {
-        return KPCollection(kpContainers: components)
+    public static func buildBlock(_ components: PropertyMapper<T0, T1>...) -> _PropertyMapperCollection<T0, T1> {
+        return _PropertyMapperCollection(propertyMappers: components)
     }
 
 }
